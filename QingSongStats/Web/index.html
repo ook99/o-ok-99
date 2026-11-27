@@ -54,16 +54,29 @@ label.f{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
 .market-tag{font-size:11px;color:var(--muted)}
 .empty{text-align:center;color:var(--muted);padding:26px 0;font-size:13px}
 details summary{cursor:pointer;font-size:13px;color:var(--green2);padding:6px 0}
+.tabs button .ic{font-size:15px;margin-right:4px}
+.cmp-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:10px 0}
+.cmp-box{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+.cmp-box span{color:var(--muted);font-size:12px}
+.cmp-box b{display:block;font-size:18px;color:var(--green2);margin-top:4px}
+.cmp-box b.up{color:var(--red)}.cmp-box b.down{color:var(--green2)}
+.cmp-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.cmp-list{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+.cmp-list h3{margin:0;padding:8px 10px;font-size:13px;background:var(--bg);color:var(--muted);border-bottom:1px solid var(--line)}
+.cmp-list div{padding:7px 10px;border-bottom:1px solid var(--line);font-size:12px;white-space:pre-wrap;word-break:break-all}
+.cmp-list div:last-child{border-bottom:0}
+@media(max-width:520px){.cmp-cols{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header><h1>轻松统计</h1><span class="ver">Web · 5.07</span></header>
 <nav class="tabs" id="tabs">
-<button data-p="parse" class="on">录单</button>
-<button data-p="list">账本</button>
-<button data-p="settle">兑奖</button>
-<button data-p="risk">风险</button>
-<button data-p="settings">设置</button>
+<button data-p="parse" class="on"><span class="ic">📝</span>录单</button>
+<button data-p="list"><span class="ic">📒</span>账本</button>
+<button data-p="settle"><span class="ic">🎉</span>兑奖</button>
+<button data-p="risk"><span class="ic">⚠️</span>风险</button>
+<button data-p="compare"><span class="ic">🔍</span>对比</button>
+<button data-p="settings"><span class="ic">⚙️</span>设置</button>
 </nav>
 <main>
 <section class="page on" id="p-parse">
@@ -140,6 +153,20 @@ details summary{cursor:pointer;font-size:13px;color:var(--green2);padding:6px 0}
     <div class="row"><button class="btn" id="btnRisk">计算</button></div>
     <div class="msg" id="riskMsg"></div>
     <div id="riskResult"></div>
+  </div>
+</section>
+
+<section class="page" id="p-compare">
+  <div class="card">
+    <h2>🔍 账本对比</h2>
+    <p class="muted">选择一份导出的账本 JSON，与当前账本对比订单、金额与地区差异。</p>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="btnPickCompare">选择对比文件</button>
+      <button class="btn ghost" id="btnRefreshCompare">刷新当前</button>
+      <input type="file" id="compareFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="msg" id="compareMsg"></div>
+    <div id="compareResult"><p class="muted">尚未选择对比账本。</p></div>
   </div>
 </section>
 
@@ -52828,6 +52855,70 @@ function loadRiskIfVisible(){
   if($('p-risk').classList.contains('on'))calcRisk();
 }
 
+
+// compare
+var compareRaw=null;
+function bookStat(raw){
+  var book=JSON.parse(raw||'{}');
+  var rs=Array.isArray(book.records)?book.records:[];
+  var cents=0,markets={};
+  rs.forEach(function(r){
+    var c=Number(r.totalCents);
+    if(!isFinite(c))c=(r.items||[]).reduce(function(sum,it){return sum+(Number(it.stakeCents)||0)},0);
+    cents+=c||0;
+    var m=r.market||'未分类';markets[m]=(markets[m]||0)+1;
+  });
+  return {count:rs.length,cents:cents,markets:markets,records:rs};
+}
+function cmpKey(r){
+  if(r.id)return String(r.id);
+  return [r.createdAt||'',r.market||'',r.source||'',(r.items||[]).map(function(it){return (it.kind||'')+':'+(it.selection||[]).join('.')}).join('|')].join('#');
+}
+function cmpLine(r){
+  var items=(r.items||[]).map(function(it){return (it.kindLabel||it.kind||'')+' '+(it.selection||[]).join('.')}).join('；');
+  return '['+String(r.createdAt||'').slice(5,16).replace('T',' ')+'] '+String(r.market||'')+' · '+money(r.totalCents||((r.items||[]).reduce(function(s,it){return s+(Number(it.stakeCents)||0)},0)))+'元\n'+((items.length>80?items.slice(0,80)+'…':items)||'（无明细）');
+}
+function renderCompare(){
+  if(!$('compareResult'))return;
+  if(!compareRaw){$('compareResult').innerHTML='<p class="muted">尚未选择对比账本。</p>';return;}
+  var cur=bookStat(bookRaw||'{}'),other=bookStat(compareRaw);
+  var curKeys={},otherKeys={};
+  cur.records.forEach(function(r){curKeys[cmpKey(r)]=true});
+  other.records.forEach(function(r){otherKeys[cmpKey(r)]=true});
+  var added=other.records.filter(function(r){return !curKeys[cmpKey(r)]});
+  var removed=cur.records.filter(function(r){return !otherKeys[cmpKey(r)]});
+  var delta=other.cents-cur.cents;
+  var cls=delta>0?'up':delta<0?'down':'';
+  var marketLines=[];
+  Object.keys(other.markets).forEach(function(m){marketLines.push(esc(m)+'：'+other.markets[m]+' 单')});
+  $('compareResult').innerHTML=
+    '<div class="cmp-summary">'+
+      '<div class="cmp-box"><span>当前订单</span><b>'+cur.count+'</b></div>'+
+      '<div class="cmp-box"><span>对比订单</span><b>'+other.count+'</b></div>'+
+      '<div class="cmp-box"><span>当前金额</span><b>'+money(cur.cents)+'</b></div>'+
+      '<div class="cmp-box"><span>对比金额</span><b>'+money(other.cents)+'</b></div>'+
+      '<div class="cmp-box"><span>金额差</span><b class="'+cls+'">'+(delta>0?'+':'')+money(delta)+'</b></div>'+
+      '<div class="cmp-box"><span>订单差</span><b class="'+cls+'">'+(other.count-cur.count>0?'+':'')+(other.count-cur.count)+'</b></div>'+
+    '</div>'+
+    '<p class="muted">对比地区：'+(marketLines.join(' · ')||'无')+'</p>'+
+    '<div class="cmp-cols">'+
+      '<div class="cmp-list"><h3>对比账本新增 '+added.length+' 单</h3>'+(added.length?added.map(function(r){return '<div>'+esc(cmpLine(r))+'</div>'}).join(''):'<div>无</div>')+'</div>'+
+      '<div class="cmp-list"><h3>当前账本多出 '+removed.length+' 单</h3>'+(removed.length?removed.map(function(r){return '<div>'+esc(cmpLine(r))+'</div>'}).join(''):'<div>无</div>')+'</div>'+
+    '</div>';
+  $('compareMsg').textContent='';
+}
+$('btnPickCompare').onclick=function(){$('compareFile').click()};
+$('btnRefreshCompare').onclick=function(){renderCompare();toast('已刷新当前账本')};
+$('compareFile').onchange=function(e){
+  var f=e.target.files&&e.target.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{JSON.parse(rd.result);compareRaw=rd.result;renderCompare();toast('对比文件已载入')}
+    catch(err){$('compareMsg').textContent='对比文件解析失败：'+err.message}
+  };
+  rd.readAsText(f);e.target.value='';
+};
+
 // tabs
 $('tabs').addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
@@ -52836,6 +52927,7 @@ $('tabs').addEventListener('click',function(e){
   if(b.dataset.p==='list'){refreshAll()}
   if(b.dataset.p==='settle'){renderStats()}
   if(b.dataset.p==='risk'){calcRisk()}
+  if(b.dataset.p==='compare'){renderCompare()}
 });
 
 // parse

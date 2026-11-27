@@ -37,10 +37,9 @@ final class ViewController: UIViewController, WKNavigationDelegate {
 
     private func loadWebPage() {
         guard let url = Bundle.main.url(forResource: "index",
-                                        withExtension: "html",
-                                        subdirectory: "Web") else {
+                                        withExtension: "html") else {
             let label = UILabel()
-            label.text = "缺少内置页面 Web/index.html"
+            label.text = "缺少内置页面 index.html"
             label.textAlignment = .center
             label.textColor = .secondaryLabel
             view.addSubview(label)
