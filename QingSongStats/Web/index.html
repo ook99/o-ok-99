@@ -53153,44 +53153,128 @@ function entryCancelSearch(a){
 <script>
 (function(){
   var N=window.NativeApi, LS='qingsong.book.v1', DLS='qingsong.draws.v1';
+  var lastPayload=null;
   var raw=null;
   try{raw=localStorage.getItem(LS)}catch(e){}
   if(!raw){raw=JSON.stringify(N.freshBook());try{localStorage.setItem(LS,raw)}catch(e){}}
   try{N.initialize(raw)}catch(e){raw=JSON.stringify(N.freshBook());N.initialize(raw)}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function money(c){return (Number(c||0)/100).toLocaleString('zh-CN',{maximumFractionDigits:2})}
   function toast(t){
     var el=document.getElementById('toast');
-    if(!el){el=document.createElement('div');el.id='toast';el.style.cssText='position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#167e53;color:#fff;padding:10px 14px;border-radius:6px;z-index:99999;display:none';document.body.appendChild(el)}
-    el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(function(){el.style.display='none'},2200);
+    if(!el){el=document.createElement('div');el.id='toast';el.style.cssText='position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#167e53;color:#fff;padding:10px 14px;border-radius:6px;z-index:99999;display:none;max-width:86vw;text-align:center';document.body.appendChild(el)}
+    el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(function(){el.style.display='none'},2400);
+  }
+  function fail(e){toast(e&&e.message?e.message:String(e))}
+  function currentRevision(){return N.prepare('revision',{}).result.revision}
+  function readDraws(){try{return JSON.parse(localStorage.getItem(DLS)||'{}')}catch(e){return {}}}
+  function writeDraws(d){try{localStorage.setItem(DLS,JSON.stringify(d))}catch(e){}}
+  function refresh(msg){
+    var r=N.prepare('orderPageSnapshot',{webPayload:true});
+    var p=JSON.parse(r.result.webPayload);
+    p.draws=readDraws();lastPayload=p;
+    if(window.ordersReceive)window.ordersReceive(p);
+    if(msg)toast(msg);
+  }
+  function commit(r,msg){
+    if(!r||!r.nextState)throw new Error('账本事务未生成');
+    var out=N.serializePending(r.nextState);
+    if(!out)throw new Error('账本序列化失败');
+    localStorage.setItem(LS,out);
+    N.commit(r.nextState);
+    refresh(msg||'已保存');
+  }
+  function details(){return lastPayload&&lastPayload.details?lastPayload.details:[]}
+  function marketOf(id){
+    var hit=details().filter(function(d){return d.record.id===id})[0];
+    if(!hit)throw new Error('订单不存在或已刷新');
+    return hit.record.market;
+  }
+  function drawFor(market){
+    var d=readDraws()[market==='老澳'?'老澳门':market];
+    if(!d||!d.numbers||d.numbers.length<7)throw new Error('请先点击开奖号码手动录入 '+market+' 的7个号码');
+    return {special:Number(d.numbers[6]),regular:d.numbers.slice(0,6).map(Number)};
+  }
+  function showDetail(id){
+    var r=N.prepare('detail',{id:id,includePlaySummary:true}).result,rec=r.record||{};
+    var items=(rec.items||[]).map(function(it){return '<div style="padding:6px 0;border-bottom:1px solid #edf1f5"><b>'+esc(it.kindLabel||it.kind||'')+'</b> '+esc((it.selection||[]).join('.'))+' <span style="float:right">¥'+money(it.stakeCents)+'</span></div>'}).join('');
+    var old=document.getElementById('qssOrderDetail');if(old)old.remove();
+    var box=document.createElement('div');box.id='qssOrderDetail';
+    box.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;display:flex;align-items:flex-end';
+    box.innerHTML='<div style="background:#fff;width:100%;max-height:82vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px 28px;box-sizing:border-box"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><b style="font-size:17px">订单详情</b><button id="qssCloseDetail" style="border:0;background:transparent;font-size:22px;color:#667">×</button></div><div style="color:#607080;font-size:12px;margin-bottom:8px">'+esc(rec.market||'')+' · '+esc(rec.person||'')+' · '+esc(String(rec.createdAt||'').slice(0,16).replace('T',' '))+'</div><div style="white-space:pre-wrap;background:#f7fafc;border:1px solid #e3ebf2;border-radius:10px;padding:10px;font-size:13px;line-height:1.6;margin-bottom:10px">'+esc(rec.source||'')+'</div>'+items+'<div style="margin-top:12px;font-size:15px;text-align:right">合计 <b>¥'+money(rec.totalCents)+'</b></div></div>';
+    document.body.appendChild(box);
+    box.addEventListener('click',function(e){if(e.target===box||e.target.id==='qssCloseDetail')box.remove()});
   }
   window.OrderHost={send:function(action,json){
     var v={};try{v=json?JSON.parse(json):{}}catch(e){}
-    if(action==='ready'){
-      try{
-        var r=N.prepare('orderPageSnapshot',{webPayload:true});
-        var p=JSON.parse(r.result.webPayload);
-        try{p.draws=JSON.parse(localStorage.getItem(DLS)||'{}')}catch(e){p.draws={}}
-        window.ordersReceive(p);
-      }catch(e){toast('页面数据载入失败：'+e.message)}
-      return;
-    }
-    if(action==='notice'){toast(v.text||'');return}
-    if(action==='copy'){
-      var text=v.text||'';
-      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast('已复制')},function(){toast('复制失败')})}
-      else toast('当前环境不支持直接复制');
-      return;
-    }
-    if(action==='share'){
-      if(navigator.share){navigator.share({text:v.text||''}).then(function(){toast('已分享')},function(){})}
-      else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v.text||'').then(function(){toast('已复制到剪贴板')},function(){})}
-      else toast('当前环境不支持分享');
-      return;
-    }
-    if(action==='draw'||action==='manualPageDraw'||action==='clearPageDraw'){
-      try{localStorage.setItem(DLS,JSON.stringify(v.draws||{}));toast('开奖号码已保存在本地')}catch(e){}
-      return;
-    }
-    toast('重建版未接入原生操作：'+action);
+    try{
+      if(action==='ready'){refresh();return}
+      if(action==='notice'){toast(v.text||'');return}
+      if(action==='copy'){
+        var text=v.text||'';
+        if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast('已复制')},function(){toast('复制失败')})}
+        else toast('当前环境不支持直接复制');
+        return;
+      }
+      if(action==='share'){
+        if(navigator.share){navigator.share({text:v.text||''}).then(function(){toast('已分享')},function(){})}
+        else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v.text||'').then(function(){toast('已复制到剪贴板')},function(){})}
+        else toast('当前环境不支持分享');
+        return;
+      }
+      if(action==='draw'){toast('开奖数据请在开奖面板手动录入');return}
+      if(action==='manualPageDraw'||action==='clearPageDraw'){
+        var draws=readDraws(),market=v.market==='老澳'?'老澳门':v.market;
+        if(action==='clearPageDraw'){delete draws[market];writeDraws(draws);refresh('已清除开奖号码');return}
+        if(!v.numbers||v.numbers.length!==7)throw new Error('请填写7个号码');
+        draws[market]={period:'手动',numbers:v.numbers.slice()};writeDraws(draws);refresh('开奖号码已保存');return;
+      }
+      if(action==='person'||action==='directoryBack'||action==='editMenu'){return}
+      if(action==='settings'){if(window.__openDeclarantSettings)window.__openDeclarantSettings();else toast('设置界面未就绪');return}
+      if(action==='detail'){showDetail(v.id);return}
+      if(action==='personSettings'){commit(N.prepare('declarantSettings',Object.assign({confirm:true},v)),'申报人设置已保存');return}
+      if(action==='addPerson'){
+        var name=prompt('新增申报人名称');if(!name||!name.trim())return;
+        commit(N.prepare('declarantSettings',{confirm:true,revision:v.revision,name:name.trim(),aliases:[]}),'已新增申报人');return;
+      }
+      if(action==='deleteDeclarants'){commit(N.prepare('deleteDeclarants',{confirm:true,names:v.names,revision:v.revision}),'已删除申报人');return}
+      if(action==='delete'){
+        var people=v.people||[],groups={};
+        details().forEach(function(d){if(people.indexOf(d.record.person)>=0){var m=d.record.market;(groups[m]||(groups[m]=[])).push(d.record.id)}});
+        var done=0;Object.keys(groups).forEach(function(m){
+          commit(N.prepare('deleteOrders',{confirm:true,revision:currentRevision(),market:m,ids:groups[m]}),null);done+=groups[m].length;
+        });
+        refresh('已删除 '+done+' 条订单');return;
+      }
+      if(action==='deleteOrder'){
+        commit(N.prepare('deleteOrders',{confirm:true,revision:v.revision,market:marketOf(v.id),ids:[v.id]}),'已删除订单');return;
+      }
+      if(action==='editOrder'){
+        var hit=details().filter(function(d){return d.record.id===v.id})[0];if(!hit)throw new Error('订单不存在');
+        var text=prompt('修改订单原文',hit.record.source||'');if(text==null)return;
+        var parsed=N.prepare('parse',{text:text}).result;if(!parsed||!parsed.valid)throw new Error((parsed&&parsed.errors&&parsed.errors.join('；'))||'解析失败');
+        commit(N.prepare('updateRecord',{id:v.id,text:text,token:parsed.token,revision:v.revision,confirm:true}),'订单已修改');return;
+      }
+      if(action==='insertOrder'){
+        var text2=prompt('插入订单原文');if(!text2||!text2.trim())return;
+        var p2=N.prepare('parse',{text:text2}).result;if(!p2||!p2.valid)throw new Error((p2&&p2.errors&&p2.errors.join('；'))||'解析失败');
+        commit(N.prepare('save',{text:text2,token:p2.token,revision:v.revision,confirm:true,insertAfterId:v.id}),'订单已插入');return;
+      }
+      if(action==='transferOrders'){
+        var target=prompt('转移到哪个申报人？\n'+(v.names||[]).join('、'),(v.names||[])[0]||'');
+        if(!target||!target.trim())return;
+        commit(N.prepare('transferOrders',{confirm:true,revision:v.revision,ids:v.ids,target:target.trim()}),'订单已转移');return;
+      }
+      if(action==='settle'){
+        var d=drawFor(v.market);
+        commit(N.prepare('settle',{confirm:true,revision:v.revision,market:v.market,recordIds:v.ids,special:d.special,regular:d.regular,includeSettlementReport:false}),'兑奖完成');return;
+      }
+      if(action==='settleBatch'){
+        var batches=(v.batches||[]).map(function(b){var d=drawFor(b.market);return {market:b.market,recordIds:b.recordIds,special:d.special,regular:d.regular}});
+        commit(N.prepare('settleBatch',{confirm:true,revision:v.revision,batches:batches,includeSettlementReport:false}),'兑奖完成');return;
+      }
+      toast('未接入操作：'+action);
+    }catch(e){fail(e)}
   }};
 })();
 </script>
@@ -53899,6 +53983,6 @@ $('#personPricingOptions').onclick=e=>{const button=e.target.closest('[data-pres
 const receiveBeforePricing=window.ordersReceive;window.ordersReceive=v=>{receiveBeforePricing(v);if($('#declarantSettings').classList.contains('show'))renderPersonPricing()};
 $('#addOrderPerson').onclick=()=>send('addPerson',{names:directoryNames(),revision:data.revision});
 $('#transferDeclarants').onclick=()=>{const ids=scopedDetails().filter(d=>chosen.has(d.record.person)).map(d=>d.record.id);if(!ids.length){send('notice',{text:'请先选择有订单的申报人'});return}send('transferOrders',{ids:[...new Set(ids)],names:directoryNames(),revision:data.revision})};
-send('ready');})();
+window.__openDeclarantSettings=openSettings;send('ready');})();
 
 </script></body></html>
