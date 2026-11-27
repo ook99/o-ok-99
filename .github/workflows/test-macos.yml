@@ -1,3 +1,0 @@
-name: Test macOS Runner
-on:/n  workflow_dispatch:/njobs:/n  test:/n    runs-on: macos-latest
-    steps:/n      - run: sw_vers
