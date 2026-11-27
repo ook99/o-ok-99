@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-14
@@ -40,3 +43,12 @@ jobs:
           name: QingSongStats-unsigned-ipa
           path: QingSongStats-unsigned.ipa
           if-no-files-found: error
+
+      - name: Publish IPA release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios16-${{ github.sha }}
+          name: iOS 16 unsigned IPA
+          files: QingSongStats-unsigned.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
