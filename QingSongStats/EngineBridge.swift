@@ -21,8 +21,8 @@ final class EngineBridge {
         let load: @convention(block) (String) -> String? = { [weak self] key in
             return self?.storage[key]
         }
-        context?.setObject(persist, forKeyedSubscript: "__qssPersist" as NSCopying)
-        context?.setObject(load, forKeyedSubscript: "__qssLoad" as NSCopying)
+        context?.setObject(persist, forKeyedSubscript: "__qssPersist" as NSString)
+        context?.setObject(load, forKeyedSubscript: "__qssLoad" as NSString)
 
         for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
             if let text = value as? String, key.hasPrefix("qingsong.") {
