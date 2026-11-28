@@ -12,6 +12,9 @@
 		AA0000000000000000000011 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000A /* ViewController.swift */; };
 		AA0000000000000000000012 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000C /* Assets.xcassets */; };
 		AA0000000000000000000013 /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000E /* index.html */; };
+		AA0000000000000000000021 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000001F /* ContentView.swift */; };
+		AA0000000000000000000022 /* EngineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* EngineBridge.swift */; };
+		AA0000000000000000000024 /* Engine in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000023 /* Engine */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +26,9 @@
 		AA000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000000000000000000000D /* AppIcon.appiconset */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = AppIcon.appiconset; sourceTree = "<group>"; };
 		AA000000000000000000000E /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
+		AA000000000000000000001F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000020 /* EngineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineBridge.swift; sourceTree = "<group>"; };
+		AA0000000000000000000023 /* Engine */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Engine; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,9 +64,12 @@
 				AA0000000000000000000008 /* AppDelegate.swift */,
 				AA0000000000000000000009 /* SceneDelegate.swift */,
 				AA000000000000000000000A /* ViewController.swift */,
+				AA000000000000000000001F /* ContentView.swift */,
+				AA0000000000000000000020 /* EngineBridge.swift */,
 				AA000000000000000000000B /* Info.plist */,
 				AA000000000000000000000C /* Assets.xcassets */,
 				AA0000000000000000000005 /* Web */,
+				AA0000000000000000000023 /* Engine */,
 			);
 			path = QingSongStats;
 			sourceTree = "<group>";
@@ -133,6 +142,7 @@
 			files = (
 				AA0000000000000000000012 /* Assets.xcassets in Resources */,
 				AA0000000000000000000013 /* index.html in Resources */,
+				AA0000000000000000000024 /* Engine in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,6 +156,8 @@
 				AA000000000000000000000F /* AppDelegate.swift in Sources */,
 				AA0000000000000000000010 /* SceneDelegate.swift in Sources */,
 				AA0000000000000000000011 /* ViewController.swift in Sources */,
+				AA0000000000000000000021 /* ContentView.swift in Sources */,
+				AA0000000000000000000022 /* EngineBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
